@@ -1,5 +1,7 @@
 # AgentBao
-AI agents built by Bao. 
+AI agents built by Bao, for fun and to share with friends.
+
+License: MIT
 
 ## Agent 1: X-Chemists (Like X-Men)
 
