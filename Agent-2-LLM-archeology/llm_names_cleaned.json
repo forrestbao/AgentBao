@@ -1,0 +1,598 @@
+{
+  "Anthropic": [
+    {
+      "model": "Claude 2",
+      "release_date": "2023-07-11"
+    },
+    {
+      "model": "Claude 3 Opus",
+      "release_date": "2024-02-29"
+    },
+    {
+      "model": "Claude 3 Sonnet",
+      "release_date": "2024-03-04"
+    },
+    {
+      "model": "Claude 3.5 Haiku",
+      "release_date": "2024-10-22"
+    },
+    {
+      "model": "Claude 3.5 Sonnet",
+      "release_date": "2024-06-20"
+    },
+    {
+      "model": "Claude 3.7 Sonnet",
+      "release_date": "2025-02-24"
+    },
+    {
+      "model": "Claude 3.7 Sonnet",
+      "release_date": "2025-02-24"
+    },
+    {
+      "model": "Claude 4",
+      "release_date": "2025-05-22"
+    }
+  ],
+  "Google": [
+    {
+      "model": "Gemini 1.5 Flash",
+      "release_date": "2024-05-10"
+    },
+    {
+      "model": "Gemini 1.5 Flash (002)",
+      "release_date": "2024-09-24"
+    },
+    {
+      "model": "Gemini 2.0 Flash Experimental",
+      "release_date": "2024-12-11"
+    },
+    {
+      "model": "Gemini 2.0 Flash Thinking Experimental",
+      "release_date": "2024-12-19"
+    },
+    {
+      "model": "Gemini 2.0 Flash-Lite",
+      "release_date": "2024-12"
+    },
+    {
+      "model": "Gemini 2.0 Pro Experimental",
+      "release_date": "2025-02-05"
+    },
+    {
+      "model": "Gemini 2.5 Flash Preview",
+      "release_date": "2025-04-17"
+    },
+    {
+      "model": "Gemini Pro",
+      "release_date": "2023-12-06"
+    },
+    {
+      "model": "Gemini-1.5-Pro",
+      "release_date": "2024-02"
+    },
+    {
+      "model": "Gemini-1.5-Pro-002",
+      "release_date": "2024-09-24"
+    },
+    {
+      "model": "Gemma 3 12B Instruct",
+      "release_date": "2025-03-12"
+    },
+    {
+      "model": "Gemma-1.1-2B-it",
+      "release_date": "2024-04-05"
+    },
+    {
+      "model": "Gemma-2-9B-it",
+      "release_date": "2024-06-27"
+    },
+    {
+      "model": "Gemma-3-1B-Instruct",
+      "release_date": "2025-03-12"
+    },
+    {
+      "model": "Gemma-3-4B-Instruct",
+      "release_date": "2025-03-12"
+    },
+    {
+      "model": "PaLM 2",
+      "release_date": "2023-05-10"
+    },
+    {
+      "model": "flan-t5-large",
+      "release_date": "2022-10-19"
+    },
+    {
+      "model": "gemini-2.0-flash-001",
+      "release_date": "2025-02-05"
+    },
+    {
+      "model": "gemini-2.5-pro-exp-03-25",
+      "release_date": "2025-03-25"
+    },
+    {
+      "model": "gemma-1.1-7b-it",
+      "release_date": "2024-04-05"
+    },
+    {
+      "model": "gemma-2-2b-it",
+      "release_date": "2024-07-31"
+    },
+    {
+      "model": "gemma-3-27b-it",
+      "release_date": "2025-03-10"
+    },
+    {
+      "model": "gemma-7b-it",
+      "release_date": "2024-02-21"
+    }
+  ],
+  "OpenAI": [
+    {
+      "model": "GPT-3.5 Turbo",
+      "release_date": "2023-03-21"
+    },
+    {
+      "model": "GPT-4",
+      "release_date": "2023-03-14"
+    },
+    {
+      "model": "GPT-4 Turbo",
+      "release_date": "2023-11"
+    },
+    {
+      "model": "GPT-4.1",
+      "release_date": "2025-04-14"
+    },
+    {
+      "model": "GPT-4.1 mini",
+      "release_date": "2025-04-14"
+    },
+    {
+      "model": "GPT-4.1 nano",
+      "release_date": "2025-04-14"
+    },
+    {
+      "model": "GPT-4o",
+      "release_date": "2024-05-13"
+    },
+    {
+      "model": "GPT-4o mini",
+      "release_date": "2024-07-18"
+    },
+    {
+      "model": "gpt-4.5-preview",
+      "release_date": "2025-02-27"
+    },
+    {
+      "model": "o1",
+      "release_date": "2024-09-12"
+    },
+    {
+      "model": "o1-Pro",
+      "release_date": "2025-03-21"
+    },
+    {
+      "model": "o1-mini",
+      "release_date": "2024-09-12"
+    },
+    {
+      "model": "o1-preview",
+      "release_date": "2024-09-12"
+    },
+    {
+      "model": "o3",
+      "release_date": "2025-04-20"
+    },
+    {
+      "model": "o3-mini-high",
+      "release_date": "2025-01-31"
+    },
+    {
+      "model": "o4-mini",
+      "release_date": "2025-04-16"
+    }
+  ],
+  "Vectara": [
+    {
+      "model": "Mockingbird-2-Echo",
+      "release_date": "2025-04-17"
+    }
+  ],
+  "Zhipu AI": [
+    {
+      "model": "GLM-4-9B-Chat",
+      "release_date": "2024-06-05"
+    }
+  ],
+  "Amazon": [
+    {
+      "model": "Nova Lite",
+      "release_date": "2024-12-03"
+    },
+    {
+      "model": "Nova Micro",
+      "release_date": "2024-12-02"
+    },
+    {
+      "model": "Nova Pro v1",
+      "release_date": "2024-12-03"
+    },
+    {
+      "model": "Titan Text Express",
+      "release_date": "2023-11-29"
+    }
+  ],
+  "xAI": [
+    {
+      "model": "Grok",
+      "release_date": "2023-11-03"
+    },
+    {
+      "model": "Grok 3 Beta",
+      "release_date": "2025-02-17"
+    },
+    {
+      "model": "Grok-2",
+      "release_date": "2024-08-13"
+    },
+    {
+      "model": "Grok-2-Vision",
+      "release_date": "2024-12-12"
+    },
+    {
+      "model": "Grok-3-Mini-Beta",
+      "release_date": "2025-02-17"
+    }
+  ],
+  "Alibaba": [
+    {
+      "model": "QwQ-32B-Preview",
+      "release_date": "2024-11"
+    },
+    {
+      "model": "Qwen2-72B-Instruct",
+      "release_date": "2024-06-07"
+    },
+    {
+      "model": "Qwen2-VL-2B-Instruct",
+      "release_date": "2024-08-30"
+    },
+    {
+      "model": "Qwen2-VL-7B-Instruct",
+      "release_date": "2024-12-20"
+    },
+    {
+      "model": "Qwen2.5-0.5B-Instruct",
+      "release_date": "2024-09-19"
+    },
+    {
+      "model": "Qwen2.5-1.5B-Instruct",
+      "release_date": "2024-09-19"
+    },
+    {
+      "model": "Qwen2.5-14B-Instruct",
+      "release_date": "2024-09-19"
+    },
+    {
+      "model": "Qwen2.5-32B-Instruct",
+      "release_date": "2024-09-19"
+    },
+    {
+      "model": "Qwen2.5-3B-Instruct",
+      "release_date": "2024-09-19"
+    },
+    {
+      "model": "Qwen2.5-72B-Instruct",
+      "release_date": "2024-09-19"
+    },
+    {
+      "model": "Qwen2.5-7B-Instruct",
+      "release_date": "2024-09-19"
+    },
+    {
+      "model": "Qwen2.5-Max",
+      "release_date": "2025-01-28"
+    },
+    {
+      "model": "Qwen3-0.6B",
+      "release_date": "2025-04-28"
+    },
+    {
+      "model": "Qwen3-1.7B",
+      "release_date": "2025-04-28"
+    },
+    {
+      "model": "Qwen3-14B",
+      "release_date": "2025-04-29"
+    },
+    {
+      "model": "Qwen3-32B",
+      "release_date": "2025-06-15"
+    },
+    {
+      "model": "Qwen3-4B",
+      "release_date": "2025-04-29"
+    },
+    {
+      "model": "Qwen3-8B",
+      "release_date": "2025-04-28"
+    }
+  ],
+  "AI21 Labs": [
+    {
+      "model": "Jamba-1.5-Mini",
+      "release_date": "2024-08-22"
+    },
+    {
+      "model": "Jamba-1.6-Large",
+      "release_date": "2025-03-06"
+    },
+    {
+      "model": "Jamba-Mini-1.6",
+      "release_date": "2025-03-06"
+    }
+  ],
+  "DeepSeek": [
+    {
+      "model": "DeepSeek-V2.5",
+      "release_date": "2024-09-05"
+    },
+    {
+      "model": "DeepSeek-V3",
+      "release_date": "2024-12-25"
+    },
+    {
+      "model": "DeepSeek-V3-0324",
+      "release_date": "2025-03-24"
+    },
+    {
+      "model": "R1",
+      "release_date": "2025-01-20"
+    }
+  ],
+  "Microsoft": [
+    {
+      "model": "Orca-2-13b",
+      "release_date": "2023-11-20"
+    },
+    {
+      "model": "Phi-3-mini-128k-instruct",
+      "release_date": "2024-04-23"
+    },
+    {
+      "model": "Phi-3-mini-4k-instruct",
+      "release_date": "2024-04-23"
+    },
+    {
+      "model": "Phi-3.5-MoE-instruct",
+      "release_date": "2024-08-23"
+    },
+    {
+      "model": "Phi-4",
+      "release_date": "2024-12-12"
+    },
+    {
+      "model": "Phi-4-mini-instruct",
+      "release_date": "2025-02-01"
+    },
+    {
+      "model": "WizardLM-2-8x22B",
+      "release_date": "2024-04-15"
+    },
+    {
+      "model": "phi-2",
+      "release_date": "2023-12-12"
+    }
+  ],
+  "Intel": [
+    {
+      "model": "neural-chat-7b-v3-3",
+      "release_date": "2023-10"
+    }
+  ],
+  "Snowflake": [
+    {
+      "model": "Arctic-Instruct",
+      "release_date": "2024-04-24"
+    }
+  ],
+  "Mistral AI": [
+    {
+      "model": "Ministral 3B",
+      "release_date": "2024-10-17"
+    },
+    {
+      "model": "Ministral-8B-Instruct-2410",
+      "release_date": "2024-09-17"
+    },
+    {
+      "model": "Mistral Large 2",
+      "release_date": "2024-07-24"
+    },
+    {
+      "model": "Mistral Small 2",
+      "release_date": "2024-09"
+    },
+    {
+      "model": "Mistral Small 3",
+      "release_date": "2025-01-30"
+    },
+    {
+      "model": "Mistral-7B-Instruct-v0.3",
+      "release_date": "2024-05-22"
+    },
+    {
+      "model": "Mistral-Nemo-Instruct-2407",
+      "release_date": "2024-07-18"
+    },
+    {
+      "model": "Mistral-Small-3.1-24B-Instruct-2503",
+      "release_date": "2025-03-17"
+    },
+    {
+      "model": "Mixtral-8x22B-Instruct-v0.1",
+      "release_date": "2024-04-17"
+    },
+    {
+      "model": "Mixtral-8x7B-Instruct-v0.1",
+      "release_date": "2023-12-11"
+    },
+    {
+      "model": "Pixtral",
+      "release_date": "2024-09-17"
+    }
+  ],
+  "01.AI": [
+    {
+      "model": "Yi-1.5-34B-Chat",
+      "release_date": "2024-05-13"
+    },
+    {
+      "model": "Yi-1.5-6B-Chat",
+      "release_date": "2024-05-13"
+    }
+  ],
+  "Meta": [
+    {
+      "model": "Llama 2 13B Chat",
+      "release_date": "2023-07-18"
+    },
+    {
+      "model": "Llama 3.3 70B Instruct",
+      "release_date": "2024-12-06"
+    },
+    {
+      "model": "Llama 4 Maverick",
+      "release_date": "2025-04-05"
+    },
+    {
+      "model": "Llama 4 Scout",
+      "release_date": "2025-04-05"
+    },
+    {
+      "model": "Llama-2-70b-chat-hf",
+      "release_date": "2023-07-18"
+    },
+    {
+      "model": "Llama-2-7b-chat-hf",
+      "release_date": "2023-07-18"
+    },
+    {
+      "model": "Llama-3-8B-Chat",
+      "release_date": "2024-04-18"
+    },
+    {
+      "model": "Llama-3.1-405B-Instruct",
+      "release_date": "2024-07-23"
+    },
+    {
+      "model": "Llama-3.1-70B-Instruct",
+      "release_date": "2024-07-23"
+    },
+    {
+      "model": "Llama-3.1-8B-Instruct",
+      "release_date": "2024-07-23"
+    },
+    {
+      "model": "Llama-3.2-11B-Vision-Instruct",
+      "release_date": "2024-09-25"
+    },
+    {
+      "model": "Llama-3.2-1B-Instruct",
+      "release_date": "2024-09-25"
+    },
+    {
+      "model": "Llama-3.2-3B-Instruct",
+      "release_date": "2024-09-25"
+    },
+    {
+      "model": "Llama-3.2-90B-Vision-Instruct",
+      "release_date": "2024-09-25"
+    }
+  ],
+  "Cohere": [
+    {
+      "model": "Aya Expanse 32B",
+      "release_date": "2024-10-24"
+    },
+    {
+      "model": "Aya Expanse 8B",
+      "release_date": "2024-10-24"
+    },
+    {
+      "model": "Command A",
+      "release_date": "2025-03-13"
+    },
+    {
+      "model": "Command R",
+      "release_date": "2024-03-11"
+    },
+    {
+      "model": "Command R+",
+      "release_date": "2024-04-08"
+    }
+  ],
+  "01-ai": [
+    {
+      "model": "Yi-1.5-9B-Chat",
+      "release_date": "2024-05-13"
+    }
+  ],
+  "IBM": [
+    {
+      "model": "Granite-3.0-2B-Instruct",
+      "release_date": "2024-10-21"
+    },
+    {
+      "model": "Granite-3.0-8B-Instruct",
+      "release_date": "2024-10-21"
+    },
+    {
+      "model": "Granite-3.1-8B-Instruct",
+      "release_date": "2024-12-18"
+    },
+    {
+      "model": "Granite-3.2-8B-Instruct",
+      "release_date": "2025-02-26"
+    },
+    {
+      "model": "granite-3.1-2b-instruct",
+      "release_date": "2024-12-18"
+    },
+    {
+      "model": "granite-3.2-2b-instruct",
+      "release_date": "2025-02-26"
+    }
+  ],
+  "Databricks": [
+    {
+      "model": "DBRX Instruct",
+      "release_date": "2024-03-27"
+    }
+  ],
+  "AllenAI": [
+    {
+      "model": "OLMo-2-1124-13B-Instruct",
+      "release_date": "2024-11"
+    }
+  ],
+  "Allen Institute for AI": [
+    {
+      "model": "OLMo-2-1124-7B-Instruct",
+      "release_date": "2024-11-26"
+    }
+  ],
+  "Apple": [
+    {
+      "model": "OpenELM-3B-Instruct",
+      "release_date": "2024-04"
+    }
+  ],
+  "Technology Innovation Institute": [
+    {
+      "model": "falcon-7b-instruct",
+      "release_date": "2023-06-20"
+    }
+  ]
+}
