@@ -1,0 +1,53 @@
+{
+    "79":{
+        "name":"Intertek Testing Services NA, Inc.",
+        "logo url":null,
+        "social links":null,
+        "street_address":null,
+        "city":"Kentwood",
+        "state":"MI",
+        "zip_code":null,
+        "country":"US",
+        "overview":null,
+        "standards":null,
+        "qualifications":null,
+        "gallery":null,
+        "industries":null,
+        "testing types":null,
+        "publications":null
+      },
+      "88":{
+        "name":"Nova Via Analytical",
+        "logo url":null,
+        "social links":null,
+        "street_address":"10054 Mesa Ridge Ct Unit 106",
+        "city":"San Diego",
+        "state":"CA",
+        "zip_code":null,
+        "country":"US",
+        "overview":null,
+        "standards":null,
+        "qualifications":null,
+        "gallery":null,
+        "industries":null,
+        "testing types":null,
+        "publications":null
+      },
+      "92":{
+        "name":"Huston-DePue Calibration Laboratories Inc.",
+        "logo url":null,
+        "social links":null,
+        "street_address":"Edmond",
+        "city":"Edmond",
+        "state":"OK",
+        "zip_code":null,
+        "country":"US",
+        "overview":null,
+        "standards":null,
+        "qualifications":null,
+        "gallery":null,
+        "industries":null,
+        "testing types":null,
+        "publications":null
+      }
+}
