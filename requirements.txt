@@ -1,0 +1,23 @@
+# Core dependencies for AgentBao project
+pandas>=2.0.0
+python-dotenv>=1.0.0
+tqdm>=4.65.0
+
+# Google Gemini AI dependencies
+google-genai>=0.3.0
+
+# Data processing and analysis
+numpy>=1.24.0
+
+# Optional: For Jupyter notebooks (if using the .ipynb files)
+jupyter>=1.0.0
+ipykernel>=6.0.0
+
+# Optional: For data validation (used in some agents)
+pydantic>=2.0.0
+
+# Optional: For web scraping and API calls (if needed)
+requests>=2.31.0
+
+# Optional: For JSON handling and data manipulation
+jsonschema>=4.17.0 

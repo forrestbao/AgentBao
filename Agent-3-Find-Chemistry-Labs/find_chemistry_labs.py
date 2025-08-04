@@ -9,6 +9,24 @@ from google import genai
 from google.genai import types
 from google.genai.types import Tool, GoogleSearch
 
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException, WebDriverException
+
+from bs4 import BeautifulSoup
+import math
+
+
+# Configure Chrome options
+chrome_options = Options()
+chrome_options.add_argument('--headless')  # Run in background
+chrome_options.add_argument('--window-size=1920,1080')
+
+# Create driver
+driver = webdriver.Chrome(options=chrome_options)
+driver.set_page_load_timeout(15)  # 15 second timeout
+
 
 load_dotenv()
 
@@ -30,6 +48,73 @@ def load_labs_json(filename):
     except Exception as e:
         print(f"Error loading JSON: {e}")
         return None
+
+def fetch_url(url: str) -> dict:
+    """Fetch URL using ChromeDriver and return response with status code and content."""
+    try:
+        try:
+            # Navigate to URL
+            driver.get(url)
+            
+            # Wait for page to load
+            WebDriverWait(driver, 10).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+            
+            # Get page content
+            page_source = driver.page_source
+            current_url = driver.current_url
+            title = driver.title
+            
+            # Parse HTML to extract text content
+            soup = BeautifulSoup(page_source, 'html.parser')
+            
+            # Get text content
+            text_content = soup.get_text()
+            
+            # Clean up text - remove extra whitespace and newlines
+            lines = (line.strip() for line in text_content.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            clean_text = ' '.join(chunk for chunk in chunks if chunk)
+            
+            # Get status code (approximate - Chrome doesn't expose this directly)
+            status_code = 200  # Assume success if we got here
+            
+            return {
+                'status_code': status_code,
+                'content': clean_text,
+                'title': title,
+                'url': current_url,  # Final URL after redirects
+                'headers': {}  # ChromeDriver doesn't expose headers easily
+            }
+            
+        finally:
+            driver.close()
+            
+    except TimeoutException:
+        return {
+            'status_code': 0,
+            'content': 'Error: Page load timeout',
+            'title': '',
+            'url': url,
+            'headers': {}
+        }
+    except WebDriverException as e:
+        return {
+            'status_code': 0,
+            'content': f'WebDriver error: {str(e)}',
+            'title': '',
+            'url': url,
+            'headers': {}
+        }
+    except Exception as e:
+        return {
+            'status_code': 0,
+            'content': f'Error fetching URL: {str(e)}',
+            'title': '',
+            'url': url,
+            'headers': {}
+        }
 
 def research_lab(lab_info: str, model_version="pro"):
 
@@ -144,7 +229,7 @@ def research_lab(lab_info: str, model_version="pro"):
     return response
 
 def calculate_cost(response, model_id):
-    web_search_queries = response.candidates[0].grounding_metadata.web_search_queries
+    web_search_queries = response.candidates[0].grounding_metadata.web_search_queries if "grounding_metadata" in response.candidates[0] else []
 
     pricing = { # per 1M tokens
         "gemini-2.5-flash": 
@@ -164,44 +249,63 @@ def calculate_cost(response, model_id):
 
     return cost
 
-def filter_website_exists(lab_info: str, model_version="pro"):
-    """Filter to check if the lab's website exists and the company is still active."""
+def extract_url_from_response(response_text: str) -> str:
+    """Extract URL from the response text using regex."""
+    if not response_text:
+        return ''
+    
+    import re
+    # Look for URLs in the response
+    url_pattern = r'https?://[^\s\)\],]+'
+    url_matches = re.findall(url_pattern, response_text)
+    
+    # Return the first URL found, or empty string if none
+    return url_matches[0] if url_matches else ''
+
+def majority_vote_urls(urls: list) -> str:
+    """Determine the majority vote from a list of URLs."""
+    from collections import Counter
+    
+    # Filter out empty URLs
+    valid_urls = [url for url in urls if url and url.strip()]
+    
+    if not valid_urls:
+        return ''
+    
+    # Count occurrences of each URL
+    url_counts = Counter(valid_urls)
+    
+    # Return the most common URL
+    most_common = url_counts.most_common(1)
+    return most_common[0][0] if most_common else ''
+
+def find_website_url(lab_info: str, model_version="flash"):
+    """Find the website URL for the lab/business using majority voting from 3 attempts."""
     
     system_prompt = """
-    You are a research assistant helping to verify if companies/labs are still active and have functional websites.
+    You are a research assistant helping to find website URLs for companies/labs.
     """
     
     user_prompt = """
-    Please research this laboratory to determine if it has a functional website and appears to still be in business.
+    Please search for the only official website URL of this laboratory/business.
     
     ## Your Task
-    Check if this lab/company:
-    1. Has a working, accessible website
-    2. Appears to still be active/in business (not closed, out of business, or suspended)
-    3. The website loads properly and contains current information
-    
-    ## Information sources to use
-    1. The lab info provided below
-    2. Web search results about this lab
-    3. Direct website visits (if website URLs are found)
+    Find the official website URL for this lab/company by searching for:
+    1. Lab name + "website"
+    2. Lab name + "official site"
+    3. Lab name + address (if available)
+    4. Lab name + company info
     
     ## Search Strategy
-    1. Search for the lab name + "website"
-    2. Search for the lab name + address to find current status
-    3. Search for the lab name + "closed" or "out of business" to check if it's still operating
-    4. Try to access any found websites directly
-    
-    ## Decision Criteria
-    - Answer "YES" if: Website exists, loads properly, and shows current/recent activity
-    - Answer "NO" if: No website found, website doesn't load, company appears closed/out of business, or website shows very outdated information (>2 years old)
-    - Answer "MAYBE" if: Unclear status or mixed signals about whether company is active
+    - Use multiple search queries with different combinations
+    - Look for official company websites, not third-party directories
+    - Prioritize the main company website over specific service pages
+    - Include the only one most relevant official website URL in your output
     
     ## Output format
     Respond with a numbered list:
-    1. YES, NO, or MAYBE
-    2. Brief explanation with evidence from your research
-    3. Website URL (if found and working) or "N/A"
-    4. Last updated/activity date (if determinable) or "N/A"
+    1. Website URL (if found) or "N/A" if not found
+    2. Brief explanation of how you found it or why it wasn't found
     
     ## Lab Information:
     {lab_info}
@@ -211,11 +315,81 @@ def filter_website_exists(lab_info: str, model_version="pro"):
     google_search_tool = Tool(google_search = GoogleSearch())
     model_name = f"gemini-2.5-{model_version}"
     
+    # Perform 3 attempts for majority voting
+    urls = []
+    responses = []
+    for _ in range(3):
+        response = client.models.generate_content(
+            model=model_name,
+            contents=user_prompt.format(lab_info=lab_info),
+            config= {
+               "tools": [google_search_tool],
+               "response_modalities": ["TEXT"],
+               "thinking_config": types.ThinkingConfig(thinking_budget=-1), 
+               "system_instruction": system_prompt
+            }
+        )
+        responses.append(response)
+        url = extract_url_from_response(response.text)
+        urls.append(url)
+    
+    # Return majority vote result
+    return majority_vote_urls(urls), responses
+
+def check_website_active(lab_info: str, website_url: str, website_content: dict, model_version="flash"):
+    """Check if the website is active and contains relevant business information."""
+    
+    system_prompt = """
+    You are a research assistant helping to verify if company websites are active and contain relevant business information.
+    """
+    
+    user_prompt = """
+    Please analyze this laboratory's website to determine if it's active and contains information that aligns with the business query.
+    
+    ## Website Information Provided:
+    - Website URL: {website_url}
+    - HTTP Status Code: {status_code}
+    - Website Content: {website_content}
+    
+    ## Your Task
+    Determine if this website is:
+    1. Active and accessible (loads properly)
+    2. Contains current/recent business information 
+    3. Shows the company is still in operation
+    4. Has content that matches the lab information provided
+    
+    ## Decision Criteria
+    - Answer "YES" if: Website loads, shows recent activity, and contains relevant business info
+    - Answer "NO" if: Website doesn't load, shows very outdated info (>2 years), or company appears closed
+    - Answer "MAYBE" if: Website loads but unclear if still active or mixed signals
+    
+    ## Output format
+    Respond with a numbered list:
+    1. YES, NO, or MAYBE
+    2. Brief explanation with evidence from website analysis
+    3. Last updated/activity indicators found (if any)
+    4. Alignment between lab info and website content (if determinable)
+    
+    ## Lab Information:
+    {lab_info}
+    """
+    
+    # Prepare website content for analysis
+    status_code = website_content.get('status_code', 0)
+    content = website_content.get('content', 'No content available')[:5000]  # Limit content
+    
+    client = genai.Client()
+    model_name = f"gemini-2.5-{model_version}"
+    
     response = client.models.generate_content(
         model=model_name,
-        contents=user_prompt.format(lab_info=lab_info),
+        contents=user_prompt.format(
+            website_url=website_url,
+            status_code=status_code,
+            website_content=content,
+            lab_info=lab_info
+        ),
         config= {
-           "tools": [google_search_tool],
            "response_modalities": ["TEXT"],
            "thinking_config": types.ThinkingConfig(thinking_budget=-1), 
            "system_instruction": system_prompt
@@ -223,7 +397,7 @@ def filter_website_exists(lab_info: str, model_version="pro"):
     )
     return response
 
-def filter_chemistry_industry(lab_info: str, model_version="pro"):
+def filter_chemistry_industry(lab_info: str, model_version="flash"):
     """Filter to check if the lab serves chemistry-related industries."""
     
     system_prompt = """
@@ -303,7 +477,7 @@ def filter_chemistry_industry(lab_info: str, model_version="pro"):
     )
     return response
 
-def filter_commercial_testing(lab_info: str, model_version="pro"):
+def filter_commercial_testing(lab_info: str, model_version="flash"):
     """Filter to check if the lab offers commercial analytical testing services (not just internal testing)."""
     
     system_prompt = """
@@ -377,8 +551,8 @@ def filter_commercial_testing(lab_info: str, model_version="pro"):
     )
     return response
 
-def apply_pre_filters(df, output_file, model_version="pro"):
-    """Apply the three pre-filters before chemistry lab filtering."""
+def apply_pre_filters(df, output_file, model_version="flash"):
+    """Apply the website URL finding pre-filter before chemistry lab filtering."""
     results = []
     
     # Check for existing results to continue from interruption
@@ -428,97 +602,28 @@ def apply_pre_filters(df, output_file, model_version="pro"):
         lab_dict['id'] = lab_id
         total_cost = 0
         
-        # Apply filters sequentially, stopping on first NO
-        filter_failed = False
-        failed_filter = ""
+        # Filter 1: Find website URL
+        print("  Finding website URL...")
+        website_url, url_responses = find_website_url(lab_info, model_version)
+        url_cost = 0
+        for response in url_responses:
+            url_cost += calculate_cost(response, f"gemini-2.5-{model_version}")
+        total_cost += url_cost
         
-        # Filter 1: Website exists
-        print("  Checking if website exists...")
-        website_result = filter_website_exists(lab_info, model_version)
-        website_cost = calculate_cost(website_result, f"gemini-2.5-{model_version}")
-        website_text = website_result.text
-        total_cost += website_cost
-        
-        # Parse website filter result
-        website_lines = website_text.split('\n') if website_text else []
-        website_decision = next((line for line in website_lines if line.strip().startswith('1.')), '')
-        if 'YES' in website_decision.upper():
-            lab_dict['website_exists'] = 'YES'
-        elif 'MAYBE' in website_decision.upper():
-            lab_dict['website_exists'] = 'MAYBE'
-        else:
-            lab_dict['website_exists'] = 'NO'
-            filter_failed = True
-            failed_filter = "website"
-        lab_dict['website_filter_details'] = website_text
-        
-        # Filter 2: Chemistry industry (only if website filter passed)
-        if not filter_failed:
-            print("  Checking chemistry industry relevance...")
-            industry_result = filter_chemistry_industry(lab_info, model_version)
-            industry_cost = calculate_cost(industry_result, f"gemini-2.5-{model_version}")
-            industry_text = industry_result.text
-            total_cost += industry_cost
-            
-            # Parse industry filter result
-            industry_lines = industry_text.split('\n') if industry_text else []
-            industry_decision = next((line for line in industry_lines if line.strip().startswith('1.')), '')
-            if 'YES' in industry_decision.upper():
-                lab_dict['chemistry_industry'] = 'YES'
-            elif 'MAYBE' in industry_decision.upper():
-                lab_dict['chemistry_industry'] = 'MAYBE'
-            else:
-                lab_dict['chemistry_industry'] = 'NO'
-                filter_failed = True
-                failed_filter = "chemistry_industry"
-            lab_dict['industry_filter_details'] = industry_text
-        else:
-            # Skip this filter
-            lab_dict['chemistry_industry'] = 'SKIPPED'
-            lab_dict['industry_filter_details'] = 'SKIPPED - failed previous filter'
-        
-        # Filter 3: Commercial testing (only if previous filters passed)
-        if not filter_failed:
-            print("  Checking commercial testing availability...")
-            commercial_result = filter_commercial_testing(lab_info, model_version)
-            commercial_cost = calculate_cost(commercial_result, f"gemini-2.5-{model_version}")
-            commercial_text = commercial_result.text
-            total_cost += commercial_cost
-            
-            # Parse commercial filter result
-            commercial_lines = commercial_text.split('\n') if commercial_text else []
-            commercial_decision = next((line for line in commercial_lines if line.strip().startswith('1.')), '')
-            if 'YES' in commercial_decision.upper():
-                lab_dict['commercial_testing'] = 'YES'
-            elif 'MAYBE' in commercial_decision.upper():
-                lab_dict['commercial_testing'] = 'MAYBE'
-            else:
-                lab_dict['commercial_testing'] = 'NO'
-                filter_failed = True
-                failed_filter = "commercial_testing"
-            lab_dict['commercial_filter_details'] = commercial_text
-        else:
-            # Skip this filter
-            lab_dict['commercial_testing'] = 'SKIPPED'
-            lab_dict['commercial_filter_details'] = 'SKIPPED - failed previous filter'
+        lab_dict['website_url'] = website_url
         
         lab_dict['prefilter_cost'] = total_cost
         print(f"  Total pre-filter cost: ${total_cost:.4f}")
         
-        # Determine if lab passes pre-filters
-        passes_prefilters = (
-            lab_dict['website_exists'] in ['YES'] and
-            lab_dict['chemistry_industry'] in ['YES'] and
-            lab_dict['commercial_testing'] in ['YES']
-        )
+        # Determine if lab passes pre-filters (only check if website URL found)
+        passes_prefilters = (website_url != '')
         
         lab_dict['passes_prefilters'] = passes_prefilters
         
         if passes_prefilters:
-            print(f"  ✓ Lab passed all pre-filters: {lab.get('name', 'Unknown')}")
+            print(f"  ✓ Lab passed pre-filter (website URL found): {lab.get('name', 'Unknown')}")
         else:
-            print(f"  ✗ Lab failed pre-filters at {failed_filter}: {lab.get('name', 'Unknown')}")
-            print(f"    Website: {lab_dict['website_exists']}, Industry: {lab_dict['chemistry_industry']}, Commercial: {lab_dict['commercial_testing']}")
+            print(f"  ✗ Lab failed pre-filter (no website URL found): {lab.get('name', 'Unknown')}")
         
         results.append(lab_dict)
         
@@ -567,31 +672,27 @@ def filter_chemistry_labs(df, output_file, model_version="pro"):
         lab_id = lab.get('id', index)
         print(f"Researching lab {idx + 1}/{len(unprocessed_labs)} (ID: {lab_id}): {lab.get('name', 'Unknown')}")
         
-        # Check if all prefilters are YES
-        all_prefilters_yes = (
-            lab.get('website_exists') == 'YES' and
-            lab.get('chemistry_industry') == 'YES' and
-            lab.get('commercial_testing') == 'YES'
-        )
+        # Check if website URL was found
+        has_website_url = (lab.get('website_url', '') != '')
         
         # Create lab entry
         lab_dict = lab.to_dict()
         lab_dict['id'] = lab_id
         
-        if not all_prefilters_yes:
-            # Skip deep filter for labs without all YES prefilters
+        if not has_website_url:
+            # Skip deep filter for labs without website URL
             lab_dict['is_chemistry_lab'] = 'SKIPPED'
             lab_dict['cost'] = 0
-            lab_dict['research_reason'] = 'Skipped due to failed prefilters'
+            lab_dict['research_reason'] = 'Skipped due to no website URL'
             lab_dict['research_quotes'] = ''
             lab_dict['test_types'] = ''
             lab_dict['industries_served'] = ''
             lab_dict['homepage_url'] = ''
-            print(f"  Skipped lab (failed prefilters): {lab.get('name', 'Unknown')}")
+            print(f"  Skipped lab (no website URL): {lab.get('name', 'Unknown')}")
         else:
-            # Run deep filter for labs with all YES prefilters
+            # Run deep filter for labs with website URL
             lab_info = ""
-            do_not_use_column = ['id', 'logo url', 'standards', 'qualifications', 'gallery', 'publications']
+            do_not_use_column = ['id', 'logo url', 'standards', 'qualifications', 'gallery', 'publications', 'website_content', 'website_filter_details']
             for k, v in lab.to_dict().items():
                 # Skip empty values, None, NaN, 'nan' strings, and whitespace-only strings
                 if (pd.notna(v) and 
@@ -599,7 +700,21 @@ def filter_chemistry_labs(df, output_file, model_version="pro"):
                     k not in do_not_use_column):
                     lab_info += f"{k}: {v}, "
 
-            research_result = research_lab(lab_info, model_version)
+            # Include website content if available
+            enhanced_lab_info = lab_info
+            website_content = lab.get('website_content', {})
+            if website_content is not None and not math.isnan(website_content) and website_content.get('status_code') == 200 and website_content.get('content'):
+                enhanced_lab_info += f"\n\nWebsite Content:\n{website_content['content'][:8000]}..."  # Limit to 8000 chars for main research
+            else:
+                # skip research
+                lab_dict['is_chemistry_lab'] = 'SKIPPED'
+                lab_dict['cost'] = 0
+                lab_dict['research_reason'] = 'Skipped due to no website content'
+                lab_dict['research_quotes'] = ''
+                lab_dict['test_types'] = ''
+                lab_dict['industries_served'] = ''
+
+            research_result = research_lab(enhanced_lab_info, model_version)
             model_id = f"gemini-2.5-{model_version}"
             cost = calculate_cost(research_result, model_id)
             print(f"Cost: {cost}")
@@ -761,7 +876,7 @@ def main(num_samples=20, seed=42, model_version="pro", input_file="input_labs.js
     print(f"\n=== STEP 1: Applying Pre-filters ===")
     print(f"Pre-filter results will be saved to: {prefilter_file}")
     
-    prefilter_results = apply_pre_filters(df, prefilter_file, model_version)
+    prefilter_results = apply_pre_filters(df, prefilter_file, "flash")
     
     # Count pre-filter results
     passed_prefilters = [lab for lab in prefilter_results if lab.get('passes_prefilters', False)]
@@ -773,14 +888,10 @@ def main(num_samples=20, seed=42, model_version="pro", input_file="input_labs.js
     print(f"Failed pre-filters: {len(failed_prefilters)} ({len(failed_prefilters)/len(prefilter_results)*100:.1f}%)")
     
     # Breakdown by filter type
-    website_no = len([lab for lab in prefilter_results if lab.get('website_exists') == 'NO'])
-    industry_no = len([lab for lab in prefilter_results if lab.get('chemistry_industry') == 'NO'])
-    commercial_no = len([lab for lab in prefilter_results if lab.get('commercial_testing') == 'NO'])
+    website_no = len([lab for lab in prefilter_results if lab.get('website_url') == ''])
     
     print(f"\nFilter breakdown:")
-    print(f"  Website doesn't exist: {website_no} labs ({website_no/len(prefilter_results)*100:.1f}%)")
-    print(f"  Non-chemistry industry: {industry_no} labs ({industry_no/len(prefilter_results)*100:.1f}%)")
-    print(f"  Internal testing only: {commercial_no} labs ({commercial_no/len(prefilter_results)*100:.1f}%)")
+    print(f"  No website URL found: {website_no} labs ({website_no/len(prefilter_results)*100:.1f}%)")
     
     if prefilter_only:
         print(f"\nPre-filtering completed. Results saved to {prefilter_file}")
@@ -788,13 +899,13 @@ def main(num_samples=20, seed=42, model_version="pro", input_file="input_labs.js
     
     # Step 2: Apply chemistry lab filter to all labs from prefilter results
     print(f"\n=== STEP 2: Applying Chemistry Lab Filter ===")
-    print(f"Processing all {len(prefilter_results)} labs (deep filtering only labs with all YES prefilters)")
+    print(f"Processing all {len(prefilter_results)} labs (deep filtering only labs with website URLs)")
     
     # Create DataFrame from all prefilter results for chemistry filtering
     df = pd.DataFrame(prefilter_results)
     
     # Apply chemistry lab filtering
-    chemistry_results = filter_chemistry_labs(df, output_file, model_version)
+    chemistry_results = filter_chemistry_labs(df, output_file, "pro")
     
     print(f"\n=== Final Results ===")
     print(f"Chemistry research completed. Results saved to {output_file}")
@@ -820,7 +931,7 @@ if __name__ == "__main__":
     parser.add_argument('--output', default='output_labs.json',
                         help='Output JSON file name (default: output_labs.json)')
     parser.add_argument('--prefilter-only', action='store_true',
-                        help='Only run pre-filters (website exists, chemistry industry, commercial testing) without the final chemistry lab filter')
+                        help='Only run pre-filter (find website URL) without the final chemistry lab filter')
     
     args = parser.parse_args()
     main(num_samples=args.num_samples, seed=args.seed, model_version=args.version, input_file=args.input, output_file=args.output, prefilter_only=args.prefilter_only)
