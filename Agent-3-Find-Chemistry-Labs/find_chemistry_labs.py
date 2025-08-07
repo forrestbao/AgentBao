@@ -15,7 +15,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException, WebDriverException
 
 from bs4 import BeautifulSoup
-import math
 
 
 # Configure Chrome options
@@ -36,10 +35,19 @@ def load_labs_json(filename):
         with open(filename, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
-        # Convert JSON to DataFrame with index
-        df = pd.DataFrame.from_dict(data, orient='index')
-        print(f"Loaded {len(df)} labs from {filename}")
-        print(f"Index: {df.index.name or 'Index'}")
+        # Handle both list and dictionary formats
+        if isinstance(data, list):
+            # If data is a list, convert directly to DataFrame
+            df = pd.DataFrame(data)
+            print(f"Loaded {len(df)} labs from {filename} (list format)")
+        elif isinstance(data, dict):
+            # If data is a dictionary, convert with index
+            df = pd.DataFrame.from_dict(data, orient='index')
+            print(f"Loaded {len(df)} labs from {filename} (dict format)")
+        else:
+            print(f"Error: Unsupported JSON format in {filename}")
+            return None
+        
         print(f"Columns: {list(df.columns)}")
         return df
     except FileNotFoundError:
@@ -421,23 +429,23 @@ def filter_chemistry_industry(lab_info: str, model_version="flash"):
     - Research institutions
     
     ## Non-chemistry industries (that we want to filter out):
-    - Pure medical/clinical testing (without chemical analysis)
-    - Mechanical testing only
-    - Electrical testing only
+    - **Medical/clinical testing**
+    - **Construction testing**
+    - **Biological/microbiological testing**
+    - Mechanical testing
+    - Electrical testing
     - Software/IT services
-    - Construction testing (structural only)
-    - Automotive testing (safety/mechanical only)
+    - Automotive testing
     - Telecommunications
     - Financial services
-    - Pure biological/microbiological testing
     
     ## Your Task
     Determine if this lab primarily serves chemistry-related industries or non-chemistry industries.
     
     ## Information sources to use
     1. The lab info provided below
-    2. Web search results about this lab and its services
-    3. Lab website content (if available)
+    2. Lab website content
+    3. Web search results about this lab and its services
     
     ## Search Strategy
     1. Search for lab name + "industries served"
@@ -446,9 +454,9 @@ def filter_chemistry_industry(lab_info: str, model_version="flash"):
     4. Look for case studies or testimonials that indicate industry focus
     
     ## Decision Criteria
-    - Answer "YES" if: Lab primarily serves chemistry-related industries
-    - Answer "NO" if: Lab primarily serves non-chemistry industries
-    - Answer "MAYBE" if: Mixed industries or unclear focus
+    - Answer "YES" if: Lab primarily serves industries directly related to chemistry
+    - Answer "NO" if: Lab primarily serves industries not related to chemistry
+    - Answer "MAYBE" if: Mixed industries, not directly related to chemistry, or unclear focus
     
     ## Output format
     Respond with a numbered list:
@@ -551,8 +559,8 @@ def filter_commercial_testing(lab_info: str, model_version="flash"):
     )
     return response
 
-def apply_pre_filters(df, output_file, model_version="flash"):
-    """Apply the website URL finding pre-filter before chemistry lab filtering."""
+def apply_website_url_filter(df, output_file, model_version="flash"):
+    """Stage 1: Find website URLs for labs."""
     results = []
     
     # Check for existing results to continue from interruption
@@ -562,7 +570,7 @@ def apply_pre_filters(df, output_file, model_version="flash"):
             with open(output_file, 'r', encoding='utf-8') as f:
                 existing_results = json.load(f)
                 for lab_entry in existing_results:
-                    if 'id' in lab_entry:
+                    if 'id' in lab_entry and 'website_url' in lab_entry:
                         processed_lab_ids.add(lab_entry['id'])
                 results = existing_results
                 print(f"Found {len(processed_lab_ids)} already processed labs in {output_file}")
@@ -582,11 +590,11 @@ def apply_pre_filters(df, output_file, model_version="flash"):
         if lab_id not in processed_lab_ids:
             unprocessed_labs.append((index, lab))
     
-    print(f"Applying pre-filters to {len(unprocessed_labs)} labs (skipping {len(processed_lab_ids)} already processed)")
+    print(f"Stage 1: Finding website URLs for {len(unprocessed_labs)} labs (skipping {len(processed_lab_ids)} already processed)")
     
-    for idx, (index, lab) in enumerate(tqdm(unprocessed_labs, desc="Applying pre-filters")):
+    for idx, (index, lab) in enumerate(tqdm(unprocessed_labs, desc="Finding website URLs")):
         lab_id = lab.get('id', index)
-        print(f"Pre-filtering lab {idx + 1}/{len(unprocessed_labs)} (ID: {lab_id}): {lab.get('name', 'Unknown')}")
+        print(f"Processing lab {idx + 1}/{len(unprocessed_labs)} (ID: {lab_id}): {lab.get('name', 'Unknown')}")
         
         # Prepare lab info string
         lab_info = ""
@@ -597,33 +605,113 @@ def apply_pre_filters(df, output_file, model_version="flash"):
                 k not in do_not_use_column):
                 lab_info += f"{k}: {v}, "
         
-        # Initialize lab dictionary and cost tracking
+        # Initialize lab dictionary
         lab_dict = lab.to_dict()
         lab_dict['id'] = lab_id
-        total_cost = 0
         
-        # Filter 1: Find website URL
+        # Find website URL
         print("  Finding website URL...")
         website_url, url_responses = find_website_url(lab_info, model_version)
         url_cost = 0
         for response in url_responses:
             url_cost += calculate_cost(response, f"gemini-2.5-{model_version}")
-        total_cost += url_cost
         
         lab_dict['website_url'] = website_url
+        lab_dict['website_url_cost'] = url_cost
+        lab_dict['website_url_status'] = 'YES' if website_url != '' else 'NO'
         
-        lab_dict['prefilter_cost'] = total_cost
-        print(f"  Total pre-filter cost: ${total_cost:.4f}")
+        print(f"  Website URL: {website_url if website_url else 'Not found'}")
+        print(f"  Cost: ${url_cost:.4f}")
         
-        # Determine if lab passes pre-filters (only check if website URL found)
-        passes_prefilters = (website_url != '')
+        results.append(lab_dict)
         
-        lab_dict['passes_prefilters'] = passes_prefilters
+        # Save results after each lab
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+        print(f"  Saved lab {idx + 1}/{len(unprocessed_labs)} to {output_file}")
+    
+    return results
+
+def apply_industry_filter(df, output_file, model_version="flash"):
+    """Stage 2: Check if labs serve chemistry-related industries."""
+    results = []
+    
+    # Check for existing results to continue from interruption
+    processed_lab_ids = set()
+    if os.path.exists(output_file):
+        try:
+            with open(output_file, 'r', encoding='utf-8') as f:
+                existing_results = json.load(f)
+                for lab_entry in existing_results:
+                    if 'id' in lab_entry and 'chemistry_industry' in lab_entry:
+                        processed_lab_ids.add(lab_entry['id'])
+                results = existing_results
+                print(f"Found {len(processed_lab_ids)} already processed labs in {output_file}")
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"Warning: Could not read existing results from {output_file}: {e}")
+            print("Starting fresh...")
+    
+    # Initialize output JSON file if it doesn't exist
+    if len(df) > 0 and not os.path.exists(output_file):
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump([], f, indent=2)
+    
+    # Filter out already processed labs
+    unprocessed_labs = []
+    for index, lab in df.iterrows():
+        lab_id = lab.get('id', index)
+        if lab_id not in processed_lab_ids:
+            unprocessed_labs.append((index, lab))
+    
+    print(f"Stage 2: Checking chemistry industry for {len(unprocessed_labs)} labs (skipping {len(processed_lab_ids)} already processed)")
+    
+    for idx, (index, lab) in enumerate(tqdm(unprocessed_labs, desc="Checking chemistry industry")):
+        lab_id = lab.get('id', index)
+        print(f"Processing lab {idx + 1}/{len(unprocessed_labs)} (ID: {lab_id}): {lab.get('name', 'Unknown')}")
         
-        if passes_prefilters:
-            print(f"  ✓ Lab passed pre-filter (website URL found): {lab.get('name', 'Unknown')}")
+        # Initialize lab dictionary
+        lab_dict = lab.to_dict()
+        lab_dict['id'] = lab_id
+        
+        # Check if website URL exists (from previous stage)
+        website_url = lab.get('website_url', '')
+        
+        if website_url != '':
+            # Prepare lab info string
+            lab_info = ""
+            do_not_use_column = ['id', 'logo url', 'standards', 'qualifications', 'gallery', 'publications']
+            for k, v in lab.to_dict().items():
+                if (pd.notna(v) and 
+                    str(v).strip().lower() not in ['', 'nan', 'none'] and 
+                    k not in do_not_use_column):
+                    lab_info += f"{k}: {v}, "
+            
+            print("  Checking chemistry industry relevance...")
+            industry_result = filter_chemistry_industry(lab_info, model_version)
+            industry_cost = calculate_cost(industry_result, f"gemini-2.5-{model_version}")
+            industry_text = industry_result.text
+            
+            # Parse industry filter result
+            industry_lines = industry_text.split('\n') if industry_text else []
+            industry_decision = next((line for line in industry_lines if line.strip().startswith('1.')), '')
+            if 'YES' in industry_decision.upper():
+                lab_dict['chemistry_industry'] = 'YES'
+            elif 'MAYBE' in industry_decision.upper():
+                lab_dict['chemistry_industry'] = 'MAYBE'
+            else:
+                lab_dict['chemistry_industry'] = 'NO'
+            
+            lab_dict['industry_filter_details'] = industry_text
+            lab_dict['chemistry_industry_cost'] = industry_cost
+            
+            print(f"  Chemistry industry: {lab_dict['chemistry_industry']}")
+            print(f"  Cost: ${industry_cost:.4f}")
         else:
-            print(f"  ✗ Lab failed pre-filter (no website URL found): {lab.get('name', 'Unknown')}")
+            # Skip this filter if no website URL
+            lab_dict['chemistry_industry'] = 'SKIPPED'
+            lab_dict['industry_filter_details'] = 'SKIPPED - no website URL found'
+            lab_dict['chemistry_industry_cost'] = 0
+            print("  Skipped - no website URL found")
         
         results.append(lab_dict)
         
@@ -672,23 +760,24 @@ def filter_chemistry_labs(df, output_file, model_version="pro"):
         lab_id = lab.get('id', index)
         print(f"Researching lab {idx + 1}/{len(unprocessed_labs)} (ID: {lab_id}): {lab.get('name', 'Unknown')}")
         
-        # Check if website URL was found
+        # Check if lab passed prefilters
         has_website_url = (lab.get('website_url', '') != '')
+        has_chemistry_industry = (lab.get('chemistry_industry') == 'YES')
         
         # Create lab entry
         lab_dict = lab.to_dict()
         lab_dict['id'] = lab_id
         
-        if not has_website_url:
+        if not (has_website_url and has_chemistry_industry):
             # Skip deep filter for labs without website URL
             lab_dict['is_chemistry_lab'] = 'SKIPPED'
             lab_dict['cost'] = 0
-            lab_dict['research_reason'] = 'Skipped due to no website URL'
+            lab_dict['research_reason'] = 'Skipped due to failed prefilters'
             lab_dict['research_quotes'] = ''
             lab_dict['test_types'] = ''
             lab_dict['industries_served'] = ''
             lab_dict['homepage_url'] = ''
-            print(f"  Skipped lab (no website URL): {lab.get('name', 'Unknown')}")
+            print(f"  Skipped lab (failed prefilters): {lab.get('name', 'Unknown')}")
         else:
             # Run deep filter for labs with website URL
             lab_info = ""
@@ -703,7 +792,7 @@ def filter_chemistry_labs(df, output_file, model_version="pro"):
             # Include website content if available
             enhanced_lab_info = lab_info
             website_content = lab.get('website_content', {})
-            if website_content is not None and not math.isnan(website_content) and website_content.get('status_code') == 200 and website_content.get('content'):
+            if website_content is not None and isinstance(website_content, dict) and website_content.get('status_code') == 200 and website_content.get('content'):
                 enhanced_lab_info += f"\n\nWebsite Content:\n{website_content['content'][:8000]}..."  # Limit to 8000 chars for main research
             else:
                 # skip research
@@ -851,72 +940,128 @@ def save_results(qualified_labs, output_filename):
     df_output.to_csv(output_filename, index=False)
     print(f"Saved {len(qualified_labs)} qualified labs to {output_filename}")
 
-def main(num_samples=20, seed=42, model_version="pro", input_file="input_labs.json", output_file="output_labs.json", prefilter_only=False):
-    """Main function to orchestrate the lab filtering process."""
+def main(num_samples=20, seed=42, model_version="pro", input_file="input_labs.json", output_file="output_labs.json", start_stage=1, end_stage=3):
+    """Main function to orchestrate the lab filtering process with stage-based processing."""
     
-    # Load input JSON
-    df = load_labs_json(input_file)
-    if df is None:
-        return
+    # Generate intermediate file names
+    base_name = output_file.replace('.json', '')
+    stage1_file = f"{base_name}_stage1_website_urls.json"
+    stage2_file = f"{base_name}_stage2_industry_filter.json"
     
-    # Test mode: randomly sample num_samples rows
-    if num_samples > 0:
+    print(f"Processing stages {start_stage} to {end_stage}")
+    
+    # Determine starting dataframe based on start_stage
+    if start_stage == 1:
+        # Load input JSON
+        df = load_labs_json(input_file)
+        if df is None:
+            return
+    elif start_stage == 2:
+        # Load stage 1 results
+        df = load_labs_json(stage1_file)
+        if df is None:
+            print(f"Error: Stage 1 results not found at {stage1_file}")
+            return
+    elif start_stage == 3:
+        # Load stage 2 results
+        df = load_labs_json(stage2_file)
+        if df is None:
+            print(f"Error: Stage 2 results not found at {stage2_file}")
+            return
+    
+    # Test mode: randomly sample num_samples rows (only if starting from stage 1)
+    if start_stage == 1 and num_samples > 0:
         print(f"Sampling {num_samples} random labs to process")
         df = df.sample(n=min(num_samples, len(df)), random_state=seed)
         df.reset_index(drop=True, inplace=True)
-    else:
+    elif start_stage == 1:
         # shuffle rows
         df = df.sample(frac=1).reset_index(drop=True)
     
     print(f"Using model: gemini-2.5-{model_version}")
-    print(f"Output file: {output_file}")
     
-    # Step 1: Apply pre-filters to reduce the dataset
-    prefilter_file = output_file.replace('.json', '_prefiltered.json')
-    print(f"\n=== STEP 1: Applying Pre-filters ===")
-    print(f"Pre-filter results will be saved to: {prefilter_file}")
+    current_results = df
     
-    prefilter_results = apply_pre_filters(df, prefilter_file, "flash")
+    # Stage 1: Website URL finding
+    if start_stage <= 1 and end_stage >= 1:
+        print(f"\n=== STAGE 1: Finding Website URLs ===")
+        print(f"Results will be saved to: {stage1_file}")
+        current_results = apply_website_url_filter(current_results, stage1_file, "flash")
+        
+        # Print stage 1 statistics
+        website_found = len([lab for lab in current_results if lab.get('website_url_status') == 'YES'])
+        website_not_found = len([lab for lab in current_results if lab.get('website_url_status') == 'NO'])
+        print(f"\n=== Stage 1 Results ===")
+        print(f"Total labs processed: {len(current_results)}")
+        print(f"Website URLs found: {website_found} ({website_found/len(current_results)*100:.1f}%)")
+        print(f"Website URLs not found: {website_not_found} ({website_not_found/len(current_results)*100:.1f}%)")
+        
+        if end_stage == 1:
+            return current_results
+        
+        # Convert to DataFrame for next stage
+        current_results = pd.DataFrame(current_results)
     
-    # Count pre-filter results
-    passed_prefilters = [lab for lab in prefilter_results if lab.get('passes_prefilters', False)]
-    failed_prefilters = [lab for lab in prefilter_results if not lab.get('passes_prefilters', False)]
+    # Stage 2: Chemistry industry filtering
+    if start_stage <= 2 and end_stage >= 2:
+        print(f"\n=== STAGE 2: Chemistry Industry Filtering ===")
+        print(f"Results will be saved to: {stage2_file}")
+        current_results = apply_industry_filter(current_results, stage2_file, "flash")
+        
+        # Print stage 2 statistics
+        industry_yes = len([lab for lab in current_results if lab.get('chemistry_industry') == 'YES'])
+        industry_no = len([lab for lab in current_results if lab.get('chemistry_industry') == 'NO'])
+        industry_maybe = len([lab for lab in current_results if lab.get('chemistry_industry') == 'MAYBE'])
+        industry_skipped = len([lab for lab in current_results if lab.get('chemistry_industry') == 'SKIPPED'])
+        
+        print(f"\n=== Stage 2 Results ===")
+        print(f"Total labs processed: {len(current_results)}")
+        print(f"Chemistry industry YES: {industry_yes} ({industry_yes/len(current_results)*100:.1f}%)")
+        print(f"Chemistry industry NO: {industry_no} ({industry_no/len(current_results)*100:.1f}%)")
+        print(f"Chemistry industry MAYBE: {industry_maybe} ({industry_maybe/len(current_results)*100:.1f}%)")
+        print(f"Chemistry industry SKIPPED: {industry_skipped} ({industry_skipped/len(current_results)*100:.1f}%)")
+        
+        # Summary of labs passing prefilters
+        passed_prefilters = [lab for lab in current_results if 
+                           lab.get('website_url_status') == 'YES' and 
+                           lab.get('chemistry_industry') == 'YES']
+        print(f"Labs passing all prefilters: {len(passed_prefilters)} ({len(passed_prefilters)/len(current_results)*100:.1f}%)")
+        
+        if end_stage == 2:
+            return current_results
+        
+        # Convert to DataFrame for next stage
+        current_results = pd.DataFrame(current_results)
     
-    print(f"\n=== Pre-filter Results ===")
-    print(f"Total labs processed: {len(prefilter_results)}")
-    print(f"Passed pre-filters: {len(passed_prefilters)} ({len(passed_prefilters)/len(prefilter_results)*100:.1f}%)")
-    print(f"Failed pre-filters: {len(failed_prefilters)} ({len(failed_prefilters)/len(prefilter_results)*100:.1f}%)")
+    # Stage 3: Chemistry lab research (final stage)
+    if start_stage <= 3 and end_stage >= 3:
+        print(f"\n=== STAGE 3: Chemistry Lab Research ===")
+        print(f"Results will be saved to: {output_file}")
+        
+        # Apply chemistry lab filtering
+        chemistry_results = filter_chemistry_labs(current_results, output_file, "pro")
+        
+        print(f"\n=== Final Results ===")
+        print(f"Chemistry research completed. Results saved to {output_file}")
+        chemistry_labs = [lab for lab in chemistry_results if lab.get('is_chemistry_lab') == 'YES']
+        maybe_labs = [lab for lab in chemistry_results if lab.get('is_chemistry_lab') == 'MAYBE']
+        
+        print(f"Final qualified chemistry labs: {len(chemistry_labs)} out of {len(current_results)} original labs ({len(chemistry_labs)/len(current_results)*100:.1f}%)")
+        print(f"Maybe chemistry labs: {len(maybe_labs)} out of {len(current_results)} original labs ({len(maybe_labs)/len(current_results)*100:.1f}%)")
+        print(f"Total labs that passed all filters: {len(chemistry_labs) + len(maybe_labs)} out of {len(current_results)} original labs")
+        
+        # Save "yes_only" output file containing only YES labs
+        yes_only_file = output_file.replace('.json', '_yes_only.json')
+        if chemistry_labs:
+            with open(yes_only_file, 'w', encoding='utf-8') as f:
+                json.dump(chemistry_labs, f, indent=2, ensure_ascii=False)
+            print(f"Saved {len(chemistry_labs)} YES-qualified labs to {yes_only_file}")
+        else:
+            print("No YES-qualified labs found - no yes_only file created")
+        
+        return chemistry_results
     
-    # Breakdown by filter type
-    website_no = len([lab for lab in prefilter_results if lab.get('website_url') == ''])
-    
-    print(f"\nFilter breakdown:")
-    print(f"  No website URL found: {website_no} labs ({website_no/len(prefilter_results)*100:.1f}%)")
-    
-    if prefilter_only:
-        print(f"\nPre-filtering completed. Results saved to {prefilter_file}")
-        return prefilter_results
-    
-    # Step 2: Apply chemistry lab filter to all labs from prefilter results
-    print(f"\n=== STEP 2: Applying Chemistry Lab Filter ===")
-    print(f"Processing all {len(prefilter_results)} labs (deep filtering only labs with website URLs)")
-    
-    # Create DataFrame from all prefilter results for chemistry filtering
-    df = pd.DataFrame(prefilter_results)
-    
-    # Apply chemistry lab filtering
-    chemistry_results = filter_chemistry_labs(df, output_file, "pro")
-    
-    print(f"\n=== Final Results ===")
-    print(f"Chemistry research completed. Results saved to {output_file}")
-    chemistry_labs = [lab for lab in chemistry_results if lab.get('is_chemistry_lab') == 'YES']
-    maybe_labs = [lab for lab in chemistry_results if lab.get('is_chemistry_lab') == 'MAYBE']
-    
-    print(f"Final qualified chemistry labs: {len(chemistry_labs)} out of {len(df)} original labs ({len(chemistry_labs)/len(df)*100:.1f}%)")
-    print(f"Maybe chemistry labs: {len(maybe_labs)} out of {len(df)} original labs ({len(maybe_labs)/len(df)*100:.1f}%)")
-    print(f"Total labs that passed all filters: {len(chemistry_labs) + len(maybe_labs)} out of {len(df)} original labs")
-    
-    return chemistry_results
+    return current_results
 
 if __name__ == "__main__":
     import argparse
@@ -930,8 +1075,10 @@ if __name__ == "__main__":
                             help='Input JSON file name (default: input_labs.json)')
     parser.add_argument('--output', default='output_labs.json',
                         help='Output JSON file name (default: output_labs.json)')
-    parser.add_argument('--prefilter-only', action='store_true',
-                        help='Only run pre-filter (find website URL) without the final chemistry lab filter')
+    parser.add_argument('--start-stage', type=int, choices=[1, 2, 3], default=1,
+                        help='Starting stage: 1=website URLs, 2=industry filter, 3=chemistry research')
+    parser.add_argument('--end-stage', type=int, choices=[1, 2, 3], default=3,
+                        help='Ending stage: 1=website URLs, 2=industry filter, 3=chemistry research')
     
     args = parser.parse_args()
-    main(num_samples=args.num_samples, seed=args.seed, model_version=args.version, input_file=args.input, output_file=args.output, prefilter_only=args.prefilter_only)
+    main(num_samples=args.num_samples, seed=args.seed, model_version=args.version, input_file=args.input, output_file=args.output, start_stage=args.start_stage, end_stage=args.end_stage)
