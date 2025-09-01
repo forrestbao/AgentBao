@@ -465,7 +465,7 @@ def filter_chemistry_industry(lab_info: str, model_version="flash"):
     """
     
     user_prompt = """
-    Please research this laboratory to determine if it serves chemistry-related industries or if its primary focus is on non-chemistry sectors.
+    Please research this laboratory to determine if it serves chemistry-related industries and its primary focus is on chemistry-related industries.
     
     ## Chemistry-related industries include:
     - Chemical manufacturing
@@ -480,7 +480,7 @@ def filter_chemistry_industry(lab_info: str, model_version="flash"):
     - Water treatment
     - Research institutions
     
-    ## Non-chemistry industries (that we want to filter out):
+    ## Non-chemistry industries (that we want to filter out if the lab primarily serves industries that are not chemistry-related):
     - **Medical/clinical testing**
     - **Construction testing**
     - **Biological/microbiological testing**
@@ -492,7 +492,9 @@ def filter_chemistry_industry(lab_info: str, model_version="flash"):
     - Financial services
     
     ## Your Task
-    Determine if this lab primarily serves chemistry-related industries or non-chemistry industries.
+    1. Determine if this lab primarily serves chemistry-related industries.
+    2. If this lab serves primarily on chemistry-related industries, determine the percentage of chemistry-related vs non-chemistry work.
+    3. If the percentage of chemistry-related work is 100%, answer "YES". Otherwise, answer "MAYBE".
     
     ## Information sources to use
     1. The lab info provided below
@@ -515,7 +517,7 @@ def filter_chemistry_industry(lab_info: str, model_version="flash"):
     1. YES, NO, or MAYBE
     2. Brief explanation with evidence
     3. Primary industries served (list)
-    4. Percentage estimate of chemistry-related vs non-chemistry work (if determinable)
+    4. Percentage of chemistry-related work out of all work (related + non-related), just a percentage number and sign, no other text without new line
     
     ## Lab Information:
     {lab_info}
@@ -672,25 +674,43 @@ def apply_industry_filter(df, output_file, model_version="flash"):
             
             print("  Checking chemistry industry relevance...")
             
+            # Retry up to 3 times if we can't extract the percentage
+            max_retries = 3
+            percentage = 0
             industry_decision = ""
             
-            industry_result = filter_chemistry_industry(lab_info, model_version)
-            industry_cost = calculate_cost(industry_result, f"gemini-2.5-{model_version}")
-            industry_text = industry_result.text
+            for attempt in range(max_retries):
+                industry_result = filter_chemistry_industry(lab_info, model_version)
+                industry_cost = calculate_cost(industry_result, f"gemini-2.5-{model_version}")
+                industry_text = industry_result.text
+                
+                # Parse industry filter result using new abstraction
+                parsed_items = parse_numbered_response(industry_text, 4)
+                industry_decision = parsed_items[0]  # Line 1
+                percentage_line = parsed_items[3]    # Line 4
+                
+                # Extract percentage
+                if percentage_line:
+                    percentage_match = re.search(r'(\d+)%', percentage_line)
+                    if percentage_match:
+                        percentage = int(percentage_match.group(1))
+                        break  # Successfully extracted percentage, exit retry loop
+                
+                if attempt < max_retries - 1:
+                    print(f"    Failed to extract percentage on attempt {attempt + 1}, retrying...")
+                else:
+                    print(f"    Failed to extract percentage after {max_retries} attempts, using 0%")
             
-            # Parse industry filter result using new abstraction
-            parsed_items = parse_numbered_response(industry_text, 4)
-            industry_decision = parsed_items[0]  # Line 1
-            percentage_line = parsed_items[3]    # Line 4
+            # Update logic: set percentages >= 50% as YES
+            # if 'YES' in industry_decision.upper() or percentage >= 50:
+            if 'YES' in industry_decision.upper():
+                lab_dict['chemistry_industry'] = 'YES'
+            elif 'MAYBE' in industry_decision.upper():
+                lab_dict['chemistry_industry'] = 'MAYBE'
+            else:
+                lab_dict['chemistry_industry'] = 'NO'
             
-            # Extract percentage
-            # if percentage_line:
-            #     percentage_match = re.search(r'(\d+)%', percentage_line)
-            #     if percentage_match:
-            #         percentage = int(percentage_match.group(1))
-            
-            lab_dict['chemistry_industry'] = industry_decision
-            lab_dict['chemistry_percentage'] = percentage_line
+            lab_dict['chemistry_percentage'] = percentage
             lab_dict['industry_filter_details'] = industry_text
             lab_dict['chemistry_industry_cost'] = industry_cost
             
